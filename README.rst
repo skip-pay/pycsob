@@ -17,9 +17,17 @@ Install:
 Run tests:
 ----------
 
+Simply run tox from command-line. There are more options, please see `tox` documentation.
+
 .. code-block:: bash
 
-    python setup.py test
+    tox
+
+To re-create the tox virtual envornments before tests are run (useful if changing settings).
+
+.. code-block:: bash
+
+    tox
 
 Basic usage:
 ------------
