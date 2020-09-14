@@ -19,14 +19,15 @@ responses = Responses(package='requests.packages.urllib3')
 class CsobClientTests(TestCase):
 
     def setUp(self):
+        self.key = open(KEY_PATH).read()
         self.c = CsobClient(merchant_id='MERCHANT',
                             base_url='https://gw.cz',
-                            private_key_file=KEY_PATH,
-                            csob_pub_key_file=KEY_PATH)
+                            private_key=self.key,
+                            csob_pub_key=self.key)
 
     @responses.activate
     def test_echo_post(self):
-        resp_payload = utils.mk_payload(KEY_PATH, pairs=(
+        resp_payload = utils.mk_payload(self.key, pairs=(
             ('dttm', utils.dttm()),
             ('resultCode', conf.RETURN_CODE_OK),
             ('resultMessage', 'OK'),
@@ -38,15 +39,15 @@ class CsobClientTests(TestCase):
         assert out['resultCode'] == conf.RETURN_CODE_OK
 
         sig = resp_payload.pop('signature')
-        assert utils.verify(out, sig, KEY_PATH)
+        assert utils.verify(out, sig, self.key)
 
     @responses.activate
     def test_echo_get(self):
-        payload = utils.mk_payload(KEY_PATH, pairs=(
+        payload = utils.mk_payload(self.key, pairs=(
             ('merchantId', self.c.merchant_id),
             ('dttm', utils.dttm()),
         ))
-        resp_payload = utils.mk_payload(KEY_PATH, pairs=(
+        resp_payload = utils.mk_payload(self.key, pairs=(
             ('dttm', utils.dttm()),
             ('resultCode', conf.RETURN_CODE_OK),
             ('resultMessage', 'OK'),
@@ -60,19 +61,19 @@ class CsobClientTests(TestCase):
 
     def test_sign_message(self):
         msg = 'Příliš žluťoučký kůň úpěl ďábelské ódy.'
-        payload = utils.mk_payload(KEY_PATH, pairs=(
+        payload = utils.mk_payload(self.key, pairs=(
             ('merchantId', self.c.merchant_id),
             ('dttm', utils.dttm()),
             ('description', msg)
         ))
         assert payload['description'] == msg
         sig = payload.pop('signature')
-        assert utils.verify(payload, sig, KEY_PATH)
+        assert utils.verify(payload, sig, self.key)
 
     @responses.activate
     def test_payment_init_success(self):
         resp_url = '/payment/init'
-        resp_payload = utils.mk_payload(KEY_PATH, pairs=(
+        resp_payload = utils.mk_payload(self.key, pairs=(
             ('payId', PAY_ID),
             ('dttm', utils.dttm()),
             ('resultCode', conf.RETURN_CODE_OK),
@@ -101,7 +102,7 @@ class CsobClientTests(TestCase):
                 ('amount', 0),
             ])
         ]
-        resp_payload = utils.mk_payload(KEY_PATH, pairs=(
+        resp_payload = utils.mk_payload(self.key, pairs=(
             ('payId', PAY_ID),
             ('dttm', utils.dttm()),
             ('resultCode', conf.RETURN_CODE_PARAM_INVALID),
@@ -119,13 +120,13 @@ class CsobClientTests(TestCase):
     @responses.activate
     def test_payment_status_extension(self):
 
-        payload = utils.mk_payload(KEY_PATH, pairs=(
+        payload = utils.mk_payload(self.key, pairs=(
             ('merchantId', self.c.merchant_id),
             ('payId', PAY_ID),
             ('dttm', utils.dttm()),
         ))
 
-        resp_payload = utils.mk_payload(KEY_PATH, pairs=(
+        resp_payload = utils.mk_payload(self.key, pairs=(
             ('payId', PAY_ID),
             ('dttm', utils.dttm()),
             ('resultCode', conf.RETURN_CODE_PARAM_INVALID),
@@ -133,21 +134,29 @@ class CsobClientTests(TestCase):
             ('paymentStatus', conf.PAYMENT_STATUS_WAITING),
             ('authCode', 'F7A23E')
         ))
-        ext_payload = utils.mk_payload(KEY_PATH, pairs=(
+        ext_payload_mask_cln_rp = utils.mk_payload(self.key, pairs=(
             ('extension', 'maskClnRP'),
             ('dttm', utils.dttm()),
             ('maskedCln', '****1234'),
             ('expiration', '12/20'),
             ('longMaskedCln', 'PPPPPP****XXXX')
         ))
-        resp_payload['extensions'] = [ext_payload]
+        ext_payload_mask_cln = utils.mk_payload(self.key, pairs=(
+            ('extension', 'maskCln'),
+            ('dttm', utils.dttm()),
+            ('maskedCln', '****1234'),
+            ('expiration', '12/20'),
+            ('longMaskedCln', 'PPPPPP****XXXX')
+        ))
+        resp_payload['extensions'] = [ext_payload_mask_cln_rp, ext_payload_mask_cln]
         resp_url = utils.mk_url('/', 'payment/status/', payload)
         responses.add(responses.GET, resp_url, body=json.dumps(resp_payload), status=200)
         out = self.c.payment_status(PAY_ID)
 
         assert hasattr(out, 'extensions')
-        assert len(out.extensions) == 1
-        assert out.extensions[0]['longMaskedCln'] == ext_payload['longMaskedCln']
+        assert len(out.extensions) == 2
+        assert out.extensions[0]['longMaskedCln'] == ext_payload_mask_cln['longMaskedCln']
+        assert out.extensions[1]['longMaskedCln'] == ext_payload_mask_cln['longMaskedCln']
 
     @responses.activate
     def test_http_status_raised(self):
@@ -157,7 +166,7 @@ class CsobClientTests(TestCase):
         assert '500 Server Error' in str(excinfo.value)
 
     def test_gateway_return_retype(self):
-        resp_payload = utils.mk_payload(KEY_PATH, pairs=(
+        resp_payload = utils.mk_payload(self.key, pairs=(
             ('resultCode', str(conf.RETURN_CODE_PARAM_INVALID)),
             ('paymentStatus', str(conf.PAYMENT_STATUS_WAITING)),
             ('authCode', 'F7A23E')

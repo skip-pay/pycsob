@@ -11,9 +11,9 @@ from . import conf
 
 
 try:
-    from django.utils.timezone import localtime as now
+    from django.utils import timezone as datetime
 except ImportError:
-    from datetime import now
+    from datetime import datetime
 
 
 class CsobVerifyError(Exception):
@@ -66,7 +66,7 @@ def str_or_jsbool(v):
 
 
 def dttm(format_='%Y%m%d%H%M%S'):
-    return now().strftime(format_)
+    return datetime.now().strftime(format_)
 
 
 def validate_response(response, key):
@@ -90,7 +90,7 @@ def validate_response(response, key):
     if 'extensions' in data:
         maskclnrp_keys = 'extension', 'dttm', 'maskedCln', 'expiration', 'longMaskedCln'
         for one in data['extensions']:
-            if one['extension'] == 'maskClnRP':
+            if one['extension'] in ('maskClnRP', 'maskCln'):
                 o = OrderedDict()
                 for k in maskclnrp_keys:
                     if k in one:
