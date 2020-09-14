@@ -5,6 +5,7 @@ from collections import OrderedDict
 from Crypto.Hash import SHA
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
+from urllib.parse import urljoin, quote_plus
 
 from . import conf
 
@@ -13,15 +14,6 @@ try:
     from django.utils.timezone import localtime as now
 except ImportError:
     from datetime import now
-
-
-if sys.version_info.major < 3:
-    from urlparse import urljoin
-    from urllib import quote_plus
-    PY2 = True
-else:
-    from urllib.parse import urljoin, quote_plus
-    PY2 = False
 
 
 class CsobVerifyError(Exception):
@@ -51,8 +43,6 @@ def mk_msg_for_sign(payload):
             cart_msg.extend(one.values())
         payload['cart'] = '|'.join(map(str_or_jsbool, cart_msg))
     msg = '|'.join(map(str_or_jsbool, payload.values()))
-    if PY2:
-        msg = unicode(bytes(msg), 'utf-8')
     return msg.encode('utf-8')
 
 
