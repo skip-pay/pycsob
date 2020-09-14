@@ -22,8 +22,24 @@ class CsobClientTests(TestCase):
         self.key = open(KEY_PATH).read()
         self.c = CsobClient(merchant_id='MERCHANT',
                             base_url='https://gw.cz',
+                            private_key=KEY_PATH,
+                            csob_pub_key=KEY_PATH)
+
+    def test_client_init_can_take_key_string(self):
+        client = CsobClient(merchant_id='MERCHANT',
+                            base_url='https://gw.cz',
                             private_key=self.key,
                             csob_pub_key=self.key)
+        assert client.key == self.key
+        assert client.pubkey == self.key
+
+    def test_client_init_can_take_key_path(self):
+        client = CsobClient(merchant_id='MERCHANT',
+                            base_url='https://gw.cz',
+                            private_key=KEY_PATH,
+                            csob_pub_key=KEY_PATH)
+        assert client.key == self.key
+        assert client.pubkey == self.key
 
     @responses.activate
     def test_echo_post(self):
