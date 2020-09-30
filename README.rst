@@ -4,9 +4,6 @@ pycsob
 .. image:: https://travis-ci.org/druids/pycsob.svg?branch=master
     :target: https://travis-ci.org/druids/pycsob
 
-.. image:: https://codecov.io/gh/druids/pycsob/branch/master/graph/badge.svg
-    :target: https://codecov.io/gh/druids/pycsob
-
 
 Install:
 --------
