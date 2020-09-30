@@ -1,11 +1,9 @@
 pycsob
 ======
 
-.. image:: https://circleci.com/gh/TwistoPayments/pycsob.svg?style=svg
-   :target: https://circleci.com/gh/TwistoPayments/pycsob
+.. image:: https://travis-ci.org/druids/pycsob.svg?branch=master
+    :target: https://travis-ci.org/druids/pycsob
 
-.. image:: https://badge.fury.io/py/pycsob.svg
-    :target: https://badge.fury.io/py/pycsob
 
 Install:
 --------
@@ -17,9 +15,17 @@ Install:
 Run tests:
 ----------
 
+Simply run tox from command-line. There are more options, please see `tox` documentation.
+
 .. code-block:: bash
 
-    python setup.py test
+    tox
+
+To re-create the tox virtual envornments before tests are run (useful if changing settings).
+
+.. code-block:: bash
+
+    tox
 
 Basic usage:
 ------------

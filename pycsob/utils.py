@@ -5,23 +5,15 @@ from collections import OrderedDict
 from Crypto.Hash import SHA
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
+from urllib.parse import urljoin, quote_plus
 
 from . import conf
 
 
 try:
-    from django.utils.timezone import localtime as now
+    from django.utils import timezone as datetime
 except ImportError:
-    from datetime import now
-
-
-if sys.version_info.major < 3:
-    from urlparse import urljoin
-    from urllib import quote_plus
-    PY2 = True
-else:
-    from urllib.parse import urljoin, quote_plus
-    PY2 = False
+    from datetime import datetime
 
 
 class CsobVerifyError(Exception):
@@ -51,8 +43,6 @@ def mk_msg_for_sign(payload):
             cart_msg.extend(one.values())
         payload['cart'] = '|'.join(map(str_or_jsbool, cart_msg))
     msg = '|'.join(map(str_or_jsbool, payload.values()))
-    if PY2:
-        msg = unicode(bytes(msg), 'utf-8')
     return msg.encode('utf-8')
 
 
@@ -76,7 +66,7 @@ def str_or_jsbool(v):
 
 
 def dttm(format_='%Y%m%d%H%M%S'):
-    return now().strftime(format_)
+    return datetime.now().strftime(format_)
 
 
 def validate_response(response, key):
@@ -100,7 +90,7 @@ def validate_response(response, key):
     if 'extensions' in data:
         maskclnrp_keys = 'extension', 'dttm', 'maskedCln', 'expiration', 'longMaskedCln'
         for one in data['extensions']:
-            if one['extension'] == 'maskClnRP':
+            if one['extension'] in ('maskClnRP', 'maskCln'):
                 o = OrderedDict()
                 for k in maskclnrp_keys:
                     if k in one:
