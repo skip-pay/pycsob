@@ -2,10 +2,16 @@
 /build/
 /dist/
 /.cache/
-/.idea
 /.coverage
 /.eggs/
 /.tox/
 coverage.xml
 junit-*.xml
 __pycache__
+*.pyc
+/.pytest_cache/
+### IDE files
+/.project
+/.pydevproject
+/.idea
+/.settings/
