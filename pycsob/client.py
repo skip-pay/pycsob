@@ -55,7 +55,8 @@ class CsobClient(object):
 
     def _get_key(self, value):
         try:
-            return open(value).read()
+            with open(value) as opened_file:
+                return opened_file.read()
         except FileNotFoundError:
             return value
 
