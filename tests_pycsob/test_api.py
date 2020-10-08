@@ -1,19 +1,21 @@
 # coding: utf-8
-import os
 import json
+import os
 import pytest
+import responses
 from collections import OrderedDict
-from requests.exceptions import HTTPError
+from datetime import datetime
+from freezegun import freeze_time
 from unittest import TestCase
-from urllib3_mock import Responses
+from requests.exceptions import HTTPError
 
 from pycsob import conf, utils
 from pycsob.client import CsobClient
 
+
+BASE_URL = 'https://localhost'
 KEY_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), 'fixtures', 'test.key'))
 PAY_ID = '34ae55eb69e2cBF'
-
-responses = Responses(package='requests.packages.urllib3')
 
 
 class CsobClientTests(TestCase):
@@ -21,13 +23,13 @@ class CsobClientTests(TestCase):
     def setUp(self):
         self.key = open(KEY_PATH).read()
         self.c = CsobClient(merchant_id='MERCHANT',
-                            base_url='https://gw.cz',
+                            base_url=BASE_URL,
                             private_key=KEY_PATH,
                             csob_pub_key=KEY_PATH)
 
     def test_client_init_can_take_key_string(self):
         client = CsobClient(merchant_id='MERCHANT',
-                            base_url='https://gw.cz',
+                            base_url=BASE_URL,
                             private_key=self.key,
                             csob_pub_key=self.key)
         assert client.key == self.key
@@ -35,12 +37,13 @@ class CsobClientTests(TestCase):
 
     def test_client_init_can_take_key_path(self):
         client = CsobClient(merchant_id='MERCHANT',
-                            base_url='https://gw.cz',
+                            base_url=BASE_URL,
                             private_key=KEY_PATH,
                             csob_pub_key=KEY_PATH)
         assert client.key == self.key
         assert client.pubkey == self.key
 
+    @freeze_time(datetime.now())
     @responses.activate
     def test_echo_post(self):
         resp_payload = utils.mk_payload(self.key, pairs=(
@@ -48,7 +51,7 @@ class CsobClientTests(TestCase):
             ('resultCode', conf.RETURN_CODE_OK),
             ('resultMessage', 'OK'),
         ))
-        responses.add(responses.POST, '/echo/', body=json.dumps(resp_payload),
+        responses.add(responses.POST, utils.mk_url(BASE_URL, '/echo/'), body=json.dumps(resp_payload),
                       status=200, content_type='application/json')
         out = self.c.echo().payload
         assert out['dttm'] == resp_payload['dttm']
@@ -57,6 +60,7 @@ class CsobClientTests(TestCase):
         sig = resp_payload.pop('signature')
         assert utils.verify(out, sig, self.key)
 
+    @freeze_time(datetime.now())
     @responses.activate
     def test_echo_get(self):
         payload = utils.mk_payload(self.key, pairs=(
@@ -68,8 +72,7 @@ class CsobClientTests(TestCase):
             ('resultCode', conf.RETURN_CODE_OK),
             ('resultMessage', 'OK'),
         ))
-        url = utils.mk_url('/', 'echo/', payload)
-        responses.add(responses.GET, url, body=json.dumps(resp_payload),
+        responses.add(responses.GET, utils.mk_url(BASE_URL, '/echo/', payload), body=json.dumps(resp_payload),
                       status=200, content_type='application/json')
         out = self.c.echo(method='GET').payload
         assert out['dttm'] == resp_payload['dttm']
@@ -86,9 +89,9 @@ class CsobClientTests(TestCase):
         sig = payload.pop('signature')
         assert utils.verify(payload, sig, self.key)
 
+    @freeze_time(datetime.now())
     @responses.activate
     def test_payment_init_success(self):
-        resp_url = '/payment/init'
         resp_payload = utils.mk_payload(self.key, pairs=(
             ('payId', PAY_ID),
             ('dttm', utils.dttm()),
@@ -96,7 +99,8 @@ class CsobClientTests(TestCase):
             ('resultMessage', 'OK'),
             ('paymentStatus', 1)
         ))
-        responses.add(responses.POST, resp_url, body=json.dumps(resp_payload), status=200)
+        responses.add(responses.POST, utils.mk_url(BASE_URL, '/payment/init'), body=json.dumps(resp_payload),
+                      status=200)
         out = self.c.payment_init(order_no=666, total_amount='66600', return_url='http://example.com',
                                   description='Nějaký popis').payload
 
@@ -104,6 +108,7 @@ class CsobClientTests(TestCase):
         assert out['resultCode'] == conf.RETURN_CODE_OK
         assert len(responses.calls) == 1
 
+    @freeze_time(datetime.now())
     @responses.activate
     def test_payment_init_bad_cart(self):
         cart = [
@@ -125,14 +130,15 @@ class CsobClientTests(TestCase):
             ('resultMessage', "Invalid 'cart' amounts, does not sum to totalAmount"),
             ('paymentStatus', conf.PAYMENT_STATUS_REJECTED)
         ))
-        resp_url = '/payment/init'
-        responses.add(responses.POST, resp_url, body=json.dumps(resp_payload), status=200)
+        responses.add(responses.POST, utils.mk_url(BASE_URL, '/payment/init'), body=json.dumps(resp_payload),
+                      status=200)
         out = self.c.payment_init(order_no=666, total_amount='2200000', return_url='http://',
                                   description='X', cart=cart).payload
 
         assert out['paymentStatus'] == conf.PAYMENT_STATUS_REJECTED
         assert out['resultCode'] == conf.RETURN_CODE_PARAM_INVALID
 
+    @freeze_time(datetime.now())
     @responses.activate
     def test_payment_status_extension(self):
 
@@ -165,8 +171,8 @@ class CsobClientTests(TestCase):
             ('longMaskedCln', 'PPPPPP****XXXX')
         ))
         resp_payload['extensions'] = [ext_payload_mask_cln_rp, ext_payload_mask_cln]
-        resp_url = utils.mk_url('/', 'payment/status/', payload)
-        responses.add(responses.GET, resp_url, body=json.dumps(resp_payload), status=200)
+        responses.add(responses.GET, utils.mk_url(BASE_URL, '/payment/status/', payload), body=json.dumps(resp_payload),
+                      status=200)
         out = self.c.payment_status(PAY_ID)
 
         assert hasattr(out, 'extensions')
@@ -176,7 +182,7 @@ class CsobClientTests(TestCase):
 
     @responses.activate
     def test_http_status_raised(self):
-        responses.add(responses.POST, '/echo/', status=500)
+        responses.add(responses.POST, utils.mk_url(BASE_URL, '/echo/'), status=500)
         with pytest.raises(HTTPError) as excinfo:
             self.c.echo(method='POST')
         assert '500 Server Error' in str(excinfo.value)
