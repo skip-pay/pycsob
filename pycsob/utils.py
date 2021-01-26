@@ -36,7 +36,7 @@ def verify(payload, signature, pubkey):
 
 
 def mk_msg_for_sign(payload):
-    payload = payload.copy()
+    payload = {k: v for k, v in payload.items() if v is not None}
     if 'cart' in payload and payload['cart'] not in conf.EMPTY_VALUES:
         cart_msg = []
         for one in payload['cart']:
