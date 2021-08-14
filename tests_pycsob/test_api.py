@@ -11,6 +11,7 @@ from requests.exceptions import HTTPError
 
 from pycsob import conf, utils
 from pycsob.client import CsobClient
+from pycsob.utils import CsobCommunicationError
 
 
 BASE_URL = 'https://localhost'
@@ -201,3 +202,11 @@ class CsobClientTests(TestCase):
         fn = utils.get_card_provider
 
         assert fn('423451****111')[0] == conf.CARD_PROVIDER_VISA
+
+    @responses.activate
+    def test_response_not_containing_json_should_be_handled(self):
+        responses.add(responses.POST, utils.mk_url(BASE_URL, '/echo/'), body='<html><p>This is not JSON</p></html>',
+                      status=200, content_type='text/html')
+        with pytest.raises(CsobCommunicationError) as excinfo:
+            self.c.echo(method='POST')
+        assert 'Cannot decode JSON in response' in str(excinfo.value)

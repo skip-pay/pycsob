@@ -5,6 +5,7 @@ from collections import OrderedDict
 from Crypto.Hash import SHA
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
+from json import JSONDecodeError
 from urllib.parse import urljoin, quote_plus
 
 from . import conf
@@ -14,6 +15,10 @@ try:
     from django.utils import timezone as datetime
 except ImportError:
     from datetime import datetime
+
+
+class CsobCommunicationError(Exception):
+    pass
 
 
 class CsobVerifyError(Exception):
@@ -72,7 +77,11 @@ def dttm(format_='%Y%m%d%H%M%S'):
 def validate_response(response, key):
     response.raise_for_status()
 
-    data = response.json()
+    try:
+        data = response.json()
+    except JSONDecodeError:
+        raise CsobCommunicationError('Cannot decode JSON in response')
+
     signature = data.pop('signature')
     payload = OrderedDict()
 
