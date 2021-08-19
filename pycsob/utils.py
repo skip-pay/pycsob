@@ -9,20 +9,14 @@ from json import JSONDecodeError
 from urllib.parse import urljoin, quote_plus
 
 from . import conf
+from .exceptions import CsobBaseException, CsobJSONDecodeError, CsobVerifyError
+from requests.exceptions import HTTPError
 
 
 try:
     from django.utils import timezone as datetime
 except ImportError:
     from datetime import datetime
-
-
-class CsobCommunicationError(Exception):
-    pass
-
-
-class CsobVerifyError(Exception):
-    pass
 
 
 def sign(payload, key):
@@ -75,12 +69,13 @@ def dttm(format_='%Y%m%d%H%M%S'):
 
 
 def validate_response(response, key):
-    response.raise_for_status()
-
     try:
+        response.raise_for_status()
         data = response.json()
     except JSONDecodeError:
-        raise CsobCommunicationError('Cannot decode JSON in response')
+        raise CsobJSONDecodeError('Cannot decode JSON in response')
+    except HTTPError as raised_exception:
+        raise CsobBaseException(raised_exception)
 
     signature = data.pop('signature')
     payload = OrderedDict()
