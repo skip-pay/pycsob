@@ -7,10 +7,11 @@ from collections import OrderedDict
 from datetime import datetime
 from freezegun import freeze_time
 from unittest import TestCase
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, ConnectionError
 
 from pycsob import conf, utils
 from pycsob.client import CsobClient
+from pycsob.exceptions import CsobBaseException, CsobJSONDecodeError
 
 
 BASE_URL = 'https://localhost'
@@ -183,7 +184,7 @@ class CsobClientTests(TestCase):
     @responses.activate
     def test_http_status_raised(self):
         responses.add(responses.POST, utils.mk_url(BASE_URL, '/echo/'), status=500)
-        with pytest.raises(HTTPError) as excinfo:
+        with pytest.raises(CsobBaseException) as excinfo:
             self.c.echo(method='POST')
         assert '500 Server Error' in str(excinfo.value)
 
@@ -201,3 +202,19 @@ class CsobClientTests(TestCase):
         fn = utils.get_card_provider
 
         assert fn('423451****111')[0] == conf.CARD_PROVIDER_VISA
+
+    @responses.activate
+    def test_response_not_containing_json_should_be_handled(self):
+        responses.add(responses.POST, utils.mk_url(BASE_URL, '/echo/'), body='<html><p>This is not JSON</p></html>',
+                      status=200, content_type='text/html')
+        with pytest.raises(CsobJSONDecodeError) as excinfo:
+            self.c.echo(method='POST')
+        assert 'Cannot decode JSON in response' in str(excinfo.value)
+
+    @responses.activate
+    def test_connection_exceptions_should_be_caught_and_be_handled(self):
+        responses.add(responses.POST, utils.mk_url(BASE_URL, '/echo/'), body=ConnectionError('Can\'t connect'),
+                      status=200, content_type='text/html')
+        with pytest.raises(CsobBaseException) as excinfo:
+            self.c.echo(method='POST')
+        assert 'Can\'t connect' in str(excinfo.value)

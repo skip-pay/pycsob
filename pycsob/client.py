@@ -3,8 +3,10 @@ import json
 import logging
 import requests.adapters
 from collections import OrderedDict
+from requests.exceptions import RequestException
 
 from . import conf, utils
+from .exceptions import CsobBaseException
 
 
 try:
@@ -25,7 +27,10 @@ class HTTPAdapter(requests.adapters.HTTPAdapter):
 
     def send(self, request, **kwargs):
         kwargs.setdefault('timeout', conf.HTTP_TIMEOUT)
-        return super(HTTPAdapter, self).send(request, **kwargs)
+        try:
+            return super(HTTPAdapter, self).send(request, **kwargs)
+        except RequestException as raised_exception:
+            raise CsobBaseException(raised_exception)
 
 
 class CsobClient(object):
