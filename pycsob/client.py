@@ -10,7 +10,7 @@ from .exceptions import CsobBaseException
 
 
 try:
-    from security.transport.security_requests import SecuritySession as Session
+    from security.requests import SecuritySession as Session
     SECURITY_SESSION = True
 except ImportError:
     from requests import Session
