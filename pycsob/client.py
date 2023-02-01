@@ -102,14 +102,14 @@ class CsobClient(object):
         :return: response from gateway as OrderedDict
         """
 
-        if len(description) > 255:
-            raise ValueError('Description length is over 255 chars')
+        if len(description) > 20:
+            raise ValueError('Description length is over 20 chars')
 
         # fill cart if not set
         if not cart:
             cart = [
                 OrderedDict([
-                    ('name', description[:20]),
+                    ('name', description),
                     ('quantity', 1),
                     ('amount', total_amount)
                 ])
@@ -127,7 +127,6 @@ class CsobClient(object):
             ('returnUrl', return_url),
             ('returnMethod', return_method),
             ('cart', cart),
-            ('description', description),
             ('merchantData', merchant_data),
             ('customerId', customer_id),
             ('language', language),
@@ -219,7 +218,8 @@ class CsobClient(object):
         r = self._client.get(url)
         return utils.validate_response(r, self.pubkey)
 
-    def oneclick_init(self, orig_pay_id, order_no, total_amount, currency='CZK', description=None):
+    def oneclick_init(self, orig_pay_id, order_no, total_amount, currency='CZK', description=None,
+                      return_url='http://localhost', return_method='GET', client_initiated=False):
         """
         Initialize one-click payment. Before this, you need to call payment_init(..., pay_operation='oneclickPayment')
         It will create payment template for you. Use pay_id returned from payment_init as orig_pay_id in this method.
@@ -233,8 +233,11 @@ class CsobClient(object):
             ('totalAmount', total_amount),
             ('currency', currency),
             ('description', description),
+            ('returnUrl', return_url),
+            ('returnMethod', return_method),
+            ('clientInitiated', client_initiated),
         ))
-        url = utils.mk_url(base_url=self.base_url, endpoint_url='payment/oneclick/init')
+        url = utils.mk_url(base_url=self.base_url, endpoint_url='oneclick/init')
         r = self._client.post(url, data=json.dumps(payload))
         return utils.validate_response(r, self.pubkey)
 
@@ -250,7 +253,7 @@ class CsobClient(object):
             ('payId', pay_id),
             ('dttm', utils.dttm()),
         ))
-        url = utils.mk_url(base_url=self.base_url, endpoint_url='payment/oneclick/start')
+        url = utils.mk_url(base_url=self.base_url, endpoint_url='oneclick/process')
         r = self._client.post(url, data=json.dumps(payload))
         return utils.validate_response(r, self.pubkey)
 
