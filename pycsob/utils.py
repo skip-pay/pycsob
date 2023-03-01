@@ -2,7 +2,7 @@ import sys
 import re
 from base64 import b64encode, b64decode
 from collections import OrderedDict
-from Crypto.Hash import SHA
+from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 from json import JSONDecodeError
@@ -21,7 +21,7 @@ except ImportError:
 
 def sign(payload, key):
     msg = mk_msg_for_sign(payload)
-    h = SHA.new(msg)
+    h = SHA256.new(msg)
     signer = PKCS1_v1_5.new(RSA.importKey(key))
     return b64encode(signer.sign(h)).decode()
 
@@ -29,7 +29,7 @@ def sign(payload, key):
 def verify(payload, signature, pubkey):
     msg = mk_msg_for_sign(payload)
     key = RSA.importKey(pubkey)
-    h = SHA.new(msg)
+    h = SHA256.new(msg)
     verifier = PKCS1_v1_5.new(key)
     return verifier.verify(h, b64decode(signature))
 
