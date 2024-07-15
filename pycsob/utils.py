@@ -1,5 +1,7 @@
+import logging
 import sys
 import re
+from typing import Any, TypeVar
 from base64 import b64encode, b64decode
 from collections import OrderedDict
 from Crypto.Hash import SHA256
@@ -11,6 +13,9 @@ from urllib.parse import urljoin, quote_plus
 from . import conf
 from .exceptions import CsobBaseException, CsobJSONDecodeError, CsobVerifyError
 from requests.exceptions import HTTPError
+
+
+logger = logging.getLogger(__name__)
 
 
 try:
@@ -121,3 +126,42 @@ def get_card_provider(long_masked_number):
         if rx.match(long_masked_number[:6]):
             return provider_id, conf.CARD_PROVIDERS[provider_id]
     return None, None
+
+
+def to_camel_case(value: str) -> str:
+    """
+    Convert the value from snake_case to camelCase format. If the value is not in the snake_case format, return
+    the original value.
+    """
+    first_word, *other_words = value.split('_')
+    return "".join([first_word.lower(), *map(str.title, other_words)]) if other_words else first_word
+
+
+T = TypeVar("T", list[Any], dict[str, Any])
+
+
+def convert_keys_to_camel_case(data: T) -> T:
+    """
+    Convert all dictionary keys and nested dictionary keys from snake_case to camelCase format.
+    Returns the same data type that was in the input of the function in the data parameter.
+    """
+    if not data:
+        return data
+
+    if isinstance(data, list):
+        return [convert_keys_to_camel_case(value) if isinstance(value, (dict, list)) else value for value in data]
+
+    converted_dict = {}
+    for key, value in data.items():
+        if isinstance(key, str):
+            key = to_camel_case(key)
+        else:
+            logger.error(
+                "Incorrect value type '%s' during conversion to camcel case. String expected.", type(key)
+            )
+
+        if isinstance(value, (dict, list)):
+            converted_dict[key] = convert_keys_to_camel_case(value)
+        else:
+            converted_dict[key] = value
+    return converted_dict
