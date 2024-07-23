@@ -73,6 +73,9 @@ class CsobClient(object):
         Initialize transaction, sum of cart items must be equal to total amount
         If cart is None, we create it for you from total_amount and description values.
 
+        The payload structure must follow the signature structure order. Please follow the documentation
+        https://github.com/csob/platebnibrana/wiki/Podpis-po%C5%BEadavku-a-ov%C4%9B%C5%99en%C3%AD-podpisu-odpov%C4%9Bdi
+
         Cart example::
 
             cart = [
@@ -124,11 +127,11 @@ class CsobClient(object):
             ('payMethod', 'card'),
             ('totalAmount', total_amount),
             ('currency', currency),
-            ('customer', utils.convert_keys_to_camel_case(customer_data)),
             ('closePayment', close_payment),
             ('returnUrl', return_url),
             ('returnMethod', return_method),
             ('cart', cart),
+            ('customer', utils.convert_keys_to_camel_case(customer_data)),
             ('merchantData', merchant_data),
             ('customerId', customer_id),
             ('language', language),
@@ -225,19 +228,22 @@ class CsobClient(object):
         """
         Initialize one-click payment. Before this, you need to call payment_init(..., pay_operation='oneclickPayment')
         It will create payment template for you. Use pay_id returned from payment_init as orig_pay_id in this method.
+
+        The payload structure must follow the signature structure order. Please follow the documentation
+        https://github.com/csob/platebnibrana/wiki/Podpis-po%C5%BEadavku-a-ov%C4%9B%C5%99en%C3%AD-podpisu-odpov%C4%9Bdi
         """
 
         payload = utils.mk_payload(self.key, pairs=(
             ('merchantId', self.merchant_id),
             ('origPayId', orig_pay_id),
             ('orderNo', str(order_no)),
-            ('customer', utils.convert_keys_to_camel_case(customer_data)),
             ('dttm', utils.dttm()),
             ('totalAmount', total_amount),
             ('currency', currency),
             ('description', description),
             ('returnUrl', return_url),
             ('returnMethod', return_method),
+            ('customer', utils.convert_keys_to_camel_case(customer_data)),
             ('clientInitiated', client_initiated),
         ))
         url = utils.mk_url(base_url=self.base_url, endpoint_url='oneclick/init')
