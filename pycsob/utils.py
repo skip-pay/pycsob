@@ -46,6 +46,8 @@ def mk_msg_for_sign(payload):
         for one in payload['cart']:
             cart_msg.extend(one.values())
         payload['cart'] = '|'.join(map(str_or_jsbool, cart_msg))
+    if payload.get('customer') not in conf.EMPTY_VALUES:
+        payload['customer'] = get_customer_data_signature_message(payload['customer'])
     msg = '|'.join(map(str_or_jsbool, payload.values()))
     return msg.encode('utf-8')
 
@@ -134,10 +136,10 @@ def to_camel_case(value: str) -> str:
     the original value.
     """
     first_word, *other_words = value.split('_')
-    return "".join([first_word.lower(), *map(str.title, other_words)]) if other_words else first_word
+    return ''.join([first_word.lower(), *map(str.title, other_words)]) if other_words else first_word
 
 
-T = TypeVar("T", list[Any], dict[str, Any])
+T = TypeVar('T', list[Any], dict[str, Any])
 
 
 def convert_keys_to_camel_case(data: T) -> T:
@@ -165,3 +167,29 @@ def convert_keys_to_camel_case(data: T) -> T:
         else:
             converted_dict[key] = value
     return converted_dict
+
+
+def get_customer_data_signature_message(customer_data: dict[str, Any]) -> str:
+    """
+    Returns signature string from customer data used to sign the request.
+    For more information follow the API documentation
+    https://github.com/csob/platebnibrana/wiki/Podpis-po%C5%BEadavku-a-ov%C4%9B%C5%99en%C3%AD-podpisu-odpov%C4%9Bdi
+    """
+
+    def get_joined_values(data: dict[str, Any], keys: list) -> str:
+        """
+        Args:
+            data: payload customer data
+            keys: list with ordered keys
+        """
+        return '|'.join(str_or_jsbool(data[key]) for key in keys if key in data)
+
+    customer_keys = ['name', 'email', 'mobilePhone']
+    account_keys = ['createdAt', 'changedAt']
+    login_keys = ['auth', 'authAt']
+
+    customer_msg = get_joined_values(customer_data, customer_keys)
+    account_msg = get_joined_values(customer_data.get('account', {}), account_keys)
+    login_msg = get_joined_values(customer_data.get('login', {}), login_keys)
+
+    return '|'.join(filter(None, (customer_msg, account_msg, login_msg)))
