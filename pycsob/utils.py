@@ -59,7 +59,7 @@ def mk_payload(key, pairs):
 
 
 def mk_url(base_url, endpoint_url, payload=None):
-    url = urljoin(base_url, endpoint_url)
+    url = urljoin(base_url, endpoint_url.value)
     if payload is None:
         return url
     return urljoin(url, '/'.join(map(quote_plus, payload.values())))
@@ -82,7 +82,7 @@ def validate_response(response, key):
     except JSONDecodeError:
         raise CsobJSONDecodeError('Cannot decode JSON in response')
     except HTTPError as raised_exception:
-        raise CsobBaseException(raised_exception)
+        raise CsobBaseException(raised_exception) from raised_exception
 
     signature = data.pop('signature')
     payload = OrderedDict()

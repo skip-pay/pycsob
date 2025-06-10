@@ -6,15 +6,19 @@ from collections import OrderedDict
 from requests.exceptions import RequestException
 
 from . import conf, utils
+from .enums import EndpointUrl
 from .exceptions import CsobBaseException
 
 
-try:
-    from security.requests import SecuritySession as Session
-    SECURITY_SESSION = True
-except ImportError:
+def _get_session():
     from requests import Session
-    SECURITY_SESSION = False
+    return Session()
+
+try:
+    from django.conf import settings
+    session_factory = getattr(settings, "PYCSOB_REQUESTS_SESSION_FACTORY", _get_session)
+except ImportError:
+    session_factory = _get_session
 
 
 log = logging.getLogger('pycsob')
@@ -30,7 +34,7 @@ class HTTPAdapter(requests.adapters.HTTPAdapter):
         try:
             return super(HTTPAdapter, self).send(request, **kwargs)
         except RequestException as raised_exception:
-            raise CsobBaseException(raised_exception)
+            raise CsobBaseException(raised_exception) from raised_exception
 
 
 class CsobClient(object):
@@ -48,13 +52,10 @@ class CsobClient(object):
         self.key = private_key
         self.pubkey = self._get_key(csob_pub_key)
 
-        session = Session()
+        session = session_factory()
         session.headers = conf.HEADERS
         session.mount('https://', HTTPAdapter())
         session.mount('http://', HTTPAdapter())
-
-        if SECURITY_SESSION:
-            session.slug = 'pycsob'
 
         self._client = session
 
@@ -139,7 +140,7 @@ class CsobClient(object):
             ('logoVersion', logo_version),
             ('colorSchemeVersion', color_scheme_version),
         ))
-        url = utils.mk_url(base_url=self.base_url, endpoint_url='payment/init')
+        url = utils.mk_url(base_url=self.base_url, endpoint_url=EndpointUrl.PAYMENT_INIT)
         r = self._client.post(url, data=json.dumps(payload))
         return utils.validate_response(r, self.pubkey)
 
@@ -150,7 +151,7 @@ class CsobClient(object):
         """
         return utils.mk_url(
             base_url=self.base_url,
-            endpoint_url='payment/process/',
+            endpoint_url=EndpointUrl.PAYMENT_PROCESS,
             payload=self.req_payload(pay_id=pay_id)
         )
 
@@ -172,7 +173,7 @@ class CsobClient(object):
     def payment_status(self, pay_id):
         url = utils.mk_url(
             base_url=self.base_url,
-            endpoint_url='payment/status/',
+            endpoint_url=EndpointUrl.PAYMENT_STATUS,
             payload=self.req_payload(pay_id=pay_id)
         )
         r = self._client.get(url=url)
@@ -181,7 +182,7 @@ class CsobClient(object):
     def payment_reverse(self, pay_id):
         url = utils.mk_url(
             base_url=self.base_url,
-            endpoint_url='payment/reverse/'
+            endpoint_url=EndpointUrl.PAYMENT_REVERSE,
         )
         payload = self.req_payload(pay_id)
         r = self._client.put(url, data=json.dumps(payload))
@@ -190,7 +191,7 @@ class CsobClient(object):
     def payment_close(self, pay_id, total_amount=None):
         url = utils.mk_url(
             base_url=self.base_url,
-            endpoint_url='payment/close/'
+            endpoint_url=EndpointUrl.PAYMENT_CLOSE,
         )
         payload = self.req_payload(pay_id, totalAmount=total_amount)
         r = self._client.put(url, data=json.dumps(payload))
@@ -199,7 +200,7 @@ class CsobClient(object):
     def payment_refund(self, pay_id, amount=None):
         url = utils.mk_url(
             base_url=self.base_url,
-            endpoint_url='payment/refund/'
+            endpoint_url=EndpointUrl.PAYMENT_REFUND,
         )
 
         payload = self.req_payload(pay_id, amount=amount)
@@ -213,7 +214,7 @@ class CsobClient(object):
         """
         url = utils.mk_url(
             base_url=self.base_url,
-            endpoint_url='customer/info/',
+            endpoint_url=EndpointUrl.CUSTOMER_INFO,
             payload=utils.mk_payload(self.key, pairs=(
                 ('merchantId', self.merchant_id),
                 ('customerId', customer_id),
@@ -246,7 +247,7 @@ class CsobClient(object):
             ('customer', utils.convert_keys_to_camel_case(customer_data)),
             ('clientInitiated', client_initiated),
         ))
-        url = utils.mk_url(base_url=self.base_url, endpoint_url='oneclick/init')
+        url = utils.mk_url(base_url=self.base_url, endpoint_url=EndpointUrl.ONE_CLICK_INIT)
         r = self._client.post(url, data=json.dumps(payload))
         return utils.validate_response(r, self.pubkey)
 
@@ -262,7 +263,7 @@ class CsobClient(object):
             ('payId', pay_id),
             ('dttm', utils.dttm()),
         ))
-        url = utils.mk_url(base_url=self.base_url, endpoint_url='oneclick/process')
+        url = utils.mk_url(base_url=self.base_url, endpoint_url=EndpointUrl.ONE_CLICK_PROCESS)
         r = self._client.post(url, data=json.dumps(payload))
         return utils.validate_response(r, self.pubkey)
 
@@ -280,7 +281,7 @@ class CsobClient(object):
         if method.lower() == 'post':
             url = utils.mk_url(
                 base_url=self.base_url,
-                endpoint_url='echo/'
+                endpoint_url=EndpointUrl.ECHO,
             )
             r = self._client.post(url, data=json.dumps(payload))
         else:
