@@ -1,2 +1,2 @@
 requests>=2.9.0
-pycryptodome~=3.9.8
+pycryptodome>=3.9.8
