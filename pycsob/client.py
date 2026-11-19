@@ -163,10 +163,14 @@ class CsobClient(object):
         :return: verified data or raise error
         """
         o = OrderedDict()
-        for k in conf.RESPONSE_KEYS:
-            if k in datadict:
-                o[k] = int(datadict[k]) if k in ('resultCode', 'paymentStatus') else datadict[k]
-        if not utils.verify(o, datadict['signature'], self.pubkey):
+        try:
+            for k in conf.RESPONSE_KEYS:
+                if k in datadict:
+                    o[k] = int(datadict[k]) if k in ('resultCode', 'paymentStatus') else datadict[k]
+            signature = datadict['signature']
+        except (KeyError, ValueError) as raised_exception:
+            raise utils.CsobVerifyError('Malformed gateway return data') from raised_exception
+        if not utils.verify(o, signature, self.pubkey):
             raise utils.CsobVerifyError('Unverified gateway return data')
         return o
 

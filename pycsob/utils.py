@@ -32,11 +32,15 @@ def sign(payload, key):
 
 
 def verify(payload, signature, pubkey):
+    try:
+        decoded_signature = b64decode(signature)
+    except ValueError:  # not valid base64 or not ASCII
+        return False
     msg = mk_msg_for_sign(payload)
     key = RSA.importKey(pubkey)
     h = SHA256.new(msg)
     verifier = PKCS1_v1_5.new(key)
-    return verifier.verify(h, b64decode(signature))
+    return verifier.verify(h, decoded_signature)
 
 
 def mk_msg_for_sign(payload):
