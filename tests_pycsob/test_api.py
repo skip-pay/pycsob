@@ -12,7 +12,7 @@ from pycsob.utils import convert_keys_to_camel_case, to_camel_case, get_customer
 
 from pycsob import conf, utils
 from pycsob.client import CsobClient
-from pycsob.exceptions import CsobBaseException, CsobJSONDecodeError
+from pycsob.exceptions import CsobBaseException, CsobJSONDecodeError, CsobVerifyError
 
 
 BASE_URL = 'https://localhost'
@@ -252,6 +252,28 @@ class CsobClientTests(TestCase):
         r = self.c.gateway_return(dict(resp_payload))
         assert type(r['paymentStatus']) == int
         assert type(r['resultCode']) == int
+
+    def test_gateway_return_should_raise_verify_error_for_malformed_data(self):
+        resp_payload = utils.mk_payload(self.key, pairs=(
+            ('resultCode', str(conf.RETURN_CODE_OK)),
+            ('paymentStatus', str(conf.PAYMENT_STATUS_WAITING)),
+        ))
+        malformed_datadicts = (
+            {**resp_payload, 'resultCode': 'pzg86htrn4'},
+            {**resp_payload, 'paymentStatus': 'pzg86htrn4'},
+            {**resp_payload, 'signature': 'abc'},
+            {**resp_payload, 'signature': 'podpis€'},
+            {k: v for k, v in resp_payload.items() if k != 'signature'},
+        )
+        for datadict in malformed_datadicts:
+            with self.subTest(datadict=datadict), pytest.raises(CsobVerifyError):
+                self.c.gateway_return(datadict)
+
+    def test_gateway_return_should_not_hide_invalid_public_key(self):
+        client = CsobClient(merchant_id='MERCHANT', base_url=BASE_URL, private_key=self.key, csob_pub_key='invalid')
+        resp_payload = utils.mk_payload(self.key, pairs=(('resultCode', str(conf.RETURN_CODE_OK)),))
+        with pytest.raises(ValueError):
+            client.gateway_return(dict(resp_payload))
 
     def test_get_card_provider(self):
         fn = utils.get_card_provider
